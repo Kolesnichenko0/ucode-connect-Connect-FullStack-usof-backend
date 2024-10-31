@@ -1,0 +1,7 @@
+{
+  "host": "localhost",
+  "user": "dkolesnych",
+  "password": "dkolesnych",
+  "database": "dkolesnych_solve_stack_db_production",
+  "connectionLimit": 10
+}
