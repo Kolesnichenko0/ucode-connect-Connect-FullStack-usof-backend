@@ -89,8 +89,14 @@ const checkUserPosts = async (req, res, next) => {
 
         const userId = req.params.user_id;
 
-        if (user.id == userId) {
-            req.query.status = undefined;
+        if (user.id == userId || user.role == 'admin') {
+            if (req.query.status == 'active') {
+                req.query.status = 'active';
+            } else if (req.query.status == 'inactive') {
+                req.query.status = 'inactive';
+            } else {
+                req.query.status = undefined;
+            }
         } else {
             req.query.status = 'active';
         }
