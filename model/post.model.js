@@ -11,7 +11,9 @@ class Post extends BaseModel {
             'rating',
             'likes',
             'dislikes',
-            'category_ids'
+            'category_ids',
+            // 'user',
+            // 'category_titles'
         ];
         this.setData(data);
 
