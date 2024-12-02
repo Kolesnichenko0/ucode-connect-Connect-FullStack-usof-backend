@@ -41,7 +41,7 @@ class AuthService {
         });
 
         const emailToken = jwtUtils.generateEmailVerificationToken({userId: newUser.id});
-        const verificationUrl = `${process.env.BASE_URL}/api/auth/verify-email/${emailToken}`;
+        const verificationUrl = `http://localhost:5173/confirm-email/${emailToken}`;
 
         await emailUtil.sendVerificationEmail(email, verificationUrl);
 
@@ -188,7 +188,7 @@ class AuthService {
         }
 
         const resetToken = jwtUtils.generatePasswordResetToken({userId: user.id});
-        const resetUrl = `${process.env.BASE_URL}/api/auth/password-reset/${resetToken}`;
+        const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
 
         await emailUtil.sendPasswordResetEmail(email, resetUrl);
 

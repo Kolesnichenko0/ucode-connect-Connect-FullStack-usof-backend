@@ -7,12 +7,14 @@ class UserService {
 
     async getAllUsers(options) {
         const users = await this.userDAO.findAll(options);
-        return users
-            .map(userMapper)
-            .map(user => ({
+        const total = await this.userDAO.count();
+        return {
+            users: users.map(userMapper).map(user => ({
                 ...user,
                 profile_picture_url: `${process.env.SERVER_URL}/uploads/avatars/${user.profile_picture_name}`
-            }));
+            })),
+            total
+        };
     }
 
     async getUserById(userId) {

@@ -9,8 +9,8 @@ class PostService {
         return this.postDAO.findAllWithFilters(options);
     }
 
-    async getPostById(postId) {
-        return this.postDAO.findById(postId);
+    async getPostById(postId, userId = null) {
+        return this.postDAO.findById(postId, userId);
     }
 
     async createPost(data) {
@@ -64,15 +64,18 @@ class PostService {
         if (!updatedPost) {
             return null;
         }
-
-        await this.postDAO.updateCategories(postId, category_ids);
-        await this.postDAO.updateFiles(postId, files);
+        if (category_ids && category_ids.length > 0) {
+            await this.postDAO.updateCategories(postId, category_ids);
+        }
+        if (files !== undefined) {
+            await this.postDAO.updateFiles(postId, files);
+        }
 
         return this.getPostById(postId);
     }
 
-    async getCommentsByPostId(postId, userId) {
-        return this.postDAO.findCommentsByPostId(postId, userId);
+    async getCommentsByPostId(postId, userId, isAdmin) {
+        return this.postDAO.findCommentsByPostId(postId, userId, isAdmin);
     }
 
     async createComment(data) {
