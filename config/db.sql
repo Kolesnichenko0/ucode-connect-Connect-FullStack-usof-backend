@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users(
     full_name VARCHAR(100),
     email VARCHAR(255) NOT NULL,
     profile_picture_name VARCHAR(255) DEFAULT 'default-avatar.png',
-    rating INT NOT NULL DEFAULT 0, -- TODO
+    rating INT NOT NULL DEFAULT 0,
     email_verified BIT(1) NOT NULL DEFAULT b'0',
     role ENUM('user', 'admin') DEFAULT 'user',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS users(
 CREATE TABLE IF NOT EXISTS tokens(
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL,
-    refresh_token TEXT NOT NULL, -- TODO
+    refresh_token TEXT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT tokens_users_user_id_FK FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
