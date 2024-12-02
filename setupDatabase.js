@@ -2,7 +2,7 @@ const mysql = require('mysql2/promise');
 const {exec} = require('child_process');
 const rootConfig = require('./config/config.root.json');
 const appConfig = require('./config/config.app.json');
-const path = './config/dump_dkolesnych_solve_stack_db_production_20242910.sql';
+const path = './config/dump_dkolesnych_solve_stack_db_production_20240212.sql';
 
 async function setupDatabase() {
     let connection;

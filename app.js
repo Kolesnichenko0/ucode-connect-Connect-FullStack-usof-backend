@@ -5,11 +5,13 @@ const fileUpload = require('express-fileupload');
 const indexRoutes = require('./routes/index.routes.js');
 const swaggerUi = require('swagger-ui-express');
 const fs = require('fs');
+const cors = require('cors');
 
 const swaggerDocument = JSON.parse(fs.readFileSync(path.join(__dirname, 'docs', 'openapi.json'), 'utf8'));
 
 const app = express();
 const PORT = process.env.PORT;
+
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
@@ -20,6 +22,10 @@ app.use((err, req, res, next) => {
     }
     next(err);
 });
+
+app.use(cors({
+    origin: 'http://localhost:5173'
+}));
 
 async function setupAdminRouter() {
     try {
