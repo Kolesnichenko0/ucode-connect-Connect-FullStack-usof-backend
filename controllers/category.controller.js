@@ -8,15 +8,24 @@ class CategoryController {
     async getAllCategories(req, res) {
         try {
             const page = parseInt(req.query.page) || 1;
-            const limit = 30;
+            const limit = parseInt(req.query.limit) || 30;
             const offset = (page - 1) * limit;
             const orderBy = 'title';
             const order = 'ASC';
+            const title = req.query.title || '';
 
-            const categories = await categoryService.getAllCategories({limit, offset, orderBy, order});
+            const {categories, total, found} = await categoryService.getAllCategories({
+                limit,
+                offset,
+                orderBy,
+                order,
+                title
+            });
             return res.status(200).json({
                 message: 'Categories retrieved successfully',
-                data: categories
+                data: categories,
+                total: total,
+                found: found
             });
         } catch (error) {
             console.error('Error in getAllCategories:', error);
@@ -50,6 +59,12 @@ class CategoryController {
     async createCategory(req, res) {
         try {
             const {title, description} = req.body;
+            const existingCategory = await categoryService.getCategoryByTitle(title);
+            if (existingCategory) {
+                return res.status(409).json({
+                    message: 'Duplicate entry: A category with this title already exists'
+                });
+            }
             const newCategory = await categoryService.createCategory({title, description});
             return res.status(201).json({
                 message: 'Category created successfully',
@@ -67,6 +82,12 @@ class CategoryController {
         try {
             const categoryId = req.params.category_id;
             const {title, description} = req.body;
+            const existingCategory = await categoryService.getCategoryByTitle(title);
+            if (existingCategory && existingCategory.id != categoryId) {
+                return res.status(409).json({
+                    message: 'Duplicate entry: A category with this title already exists'
+                });
+            }
             const updatedCategory = await categoryService.updateCategory(categoryId, {title, description});
             if (!updatedCategory) {
                 return res.status(404).json({

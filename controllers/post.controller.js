@@ -31,10 +31,13 @@ class PostController {
                 endDate
             };
 
-            const posts = await postService.getAllPosts(options);
+            const {posts, found, total} = await postService.getAllPosts(options);
+
             return res.status(200).json({
                 message: 'Posts retrieved successfully',
-                data: posts
+                data: posts,
+                found,
+                total
             });
         } catch (error) {
             console.error('Error in getAllPosts:', error);
@@ -51,9 +54,7 @@ class PostController {
 
             if (req.files && req.files.media) {
                 files = Array.isArray(req.files.media) ? req.files.media : [req.files.media];
-            }
-
-            else if (req.body && (req.headers['content-type'].startsWith('image/') || req.headers['content-type'] === 'application/pdf')) {
+            } else if (req.body && (req.headers['content-type'].startsWith('image/') || req.headers['content-type'] === 'application/pdf')) {
                 files.push({
                     name: `file.${req.headers['content-type'].split('/')[1]}`,
                     data: req.body,
@@ -137,15 +138,21 @@ class PostController {
     async getPostById(req, res) {
         try {
             const postId = req.params.post_id;
-            const post = await postService.getPostById(postId);
+            const userId = req.user ? req.user.id : null;
+            const post = await postService.getPostById(postId, userId);
             if (!post) {
                 return res.status(404).json({
                     message: 'Post not found'
                 });
             }
+
+            const responseData = {...post};
+            if (post.isFavourite !== undefined) {
+                responseData.isFavourite = post.isFavourite;
+            }
             return res.status(200).json({
                 message: 'Post retrieved successfully',
-                data: post
+                data: responseData
             });
         } catch (error) {
             console.error('Error in getPostById:', error);
@@ -358,8 +365,9 @@ class PostController {
         try {
             const postId = req.params.post_id;
             const userId = req.user ? req.user.id : null;
+            const isAdmin = req.user ? req.user.role === 'admin' : false;
 
-            const comments = await postService.getCommentsByPostId(postId, userId);
+            const comments = await postService.getCommentsByPostId(postId, userId, isAdmin);
             return res.status(200).json({
                 message: 'Comments retrieved successfully',
                 data: comments
@@ -388,7 +396,7 @@ class PostController {
                 });
             }
 
-            const { content, parent_comment_id } = req.body;
+            const {content, parent_comment_id} = req.body;
             const userId = req.user.id;
             const postId = req.params.post_id;
 

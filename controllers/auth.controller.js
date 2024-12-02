@@ -96,6 +96,7 @@ class AuthController {
             }
 
             const {login, email, password} = req.body;
+
             if (!login && !email) {
                 return res.status(422).json({
                     success: false,

@@ -14,8 +14,7 @@ class UserController {
 
             if (req.files && req.files.photo) {
                 photo = req.files.photo;
-            }
-            else if (req.body && req.headers['content-type'].startsWith('image/')) {
+            } else if (req.body && req.headers['content-type'].startsWith('image/')) {
                 photo = {
                     name: `photo.${req.headers['content-type'].split('/')[1]}`,
                     data: req.body,
@@ -48,10 +47,11 @@ class UserController {
             const orderBy = req.query.sortBy == 'rating' ? 'rating' : 'login';
             const order = req.query.sortBy == 'rating' ? 'DESC' : 'ASC';
 
-            const users = await userService.getAllUsers({limit, offset, orderBy, order});
+            const {users, total} = await userService.getAllUsers({limit, offset, orderBy, order});
             return res.status(200).json({
                 message: 'Users retrieved successfully',
-                data: users
+                data: users,
+                total: total
             });
         } catch (error) {
             console.error('Error in getAllUsers:', error);
@@ -72,13 +72,35 @@ class UserController {
                 });
             }
 
-            const {page = 1, limit = 30} = req.query;
+            const {page = 1, limit = 30, status, sortBy, title, category_ids, startDate, endDate} = req.query;
             const offset = (page - 1) * limit;
 
-            const favoritePosts = await postService.getFavoritePosts(userId, {limit, offset});
+            const conditions = {};
+            if (status) {
+                conditions.status = status;
+            }
+
+            if (title) {
+                conditions.title = `%${title}%`;
+            }
+
+            const options = {
+                limit,
+                offset,
+                conditions,
+                orderBy: sortBy == 'created_at' ? 'created_at' : undefined,
+                order: sortBy == 'created_at' ? 'DESC' : undefined,
+                category_ids,
+                startDate,
+                endDate
+            };
+
+            const {posts, found, total} = await postService.getFavoritePosts(userId, options);
             return res.status(200).json({
                 message: 'Favorite posts retrieved successfully',
-                data: favoritePosts
+                data: posts,
+                found,
+                total
             });
         } catch (error) {
             console.error('Error in getFavoritePosts:', error);
@@ -216,11 +238,11 @@ class UserController {
             if (full_name) updateData.full_name = full_name;
             if (profile_picture_name) updateData.profile_picture_name = profile_picture_name;
 
-            if (req.user.role === 'admin' && userId !== req.user.id) {
+            if (req.user.role == 'admin' && userId != req.user.id) {
                 updateData = {};
             }
 
-            if (req.user.role === 'admin' && role) {
+            if (req.user.role == 'admin' && role) {
                 updateData.role = 'admin';
             }
 
@@ -267,7 +289,7 @@ class UserController {
 
     async getUserPosts(req, res) {
         try {
-            const {page = 1, limit = 30, status} = req.query;
+            const {page = 1, limit = 30, status, sortBy, title, category_ids, startDate, endDate} = req.query;
             const userId = req.params.user_id;
             const offset = (page - 1) * limit;
 
@@ -276,16 +298,27 @@ class UserController {
                 conditions.status = status;
             }
 
+            if (title) {
+                conditions.title = `%${title}%`;
+            }
+
             const options = {
                 limit,
                 offset,
-                conditions
+                conditions,
+                orderBy: sortBy == 'created_at' ? 'created_at' : undefined,
+                order: sortBy == 'created_at' ? 'DESC' : undefined,
+                category_ids,
+                startDate,
+                endDate
             };
 
-            const posts = await postService.getAllPosts(options);
+            const {posts, found, total} = await postService.getAllPosts(options);
             return res.status(200).json({
                 message: 'Posts retrieved successfully',
-                data: posts
+                data: posts,
+                found,
+                total
             });
         } catch (error) {
             console.error('Error in getUserPosts:', error);
