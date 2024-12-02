@@ -155,6 +155,12 @@ class BaseDAO {
         const [result] = await this.pool.execute(query, [id]);
         return result.affectedRows > 0;
     }
+
+    async count() {
+        const query = `SELECT COUNT(*) as total FROM ${this.tableName}`;
+        const [rows] = await this.pool.execute(query);
+        return rows[0].total;
+    }
 }
 
 module.exports = BaseDAO;

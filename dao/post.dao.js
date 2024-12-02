@@ -45,9 +45,17 @@ class PostDAO extends BaseDAO {
             whereClause += whereClause ? ' AND ' : 'WHERE ';
             whereClause += 'posts.created_at BETWEEN ? AND ?';
             values.push(startDate, endDate);
+        } else if (startDate) {
+            whereClause += whereClause ? ' AND ' : 'WHERE ';
+            whereClause += 'posts.created_at >= ?';
+            values.push(startDate);
+        } else if (endDate) {
+            whereClause += whereClause ? ' AND ' : 'WHERE ';
+            whereClause += 'posts.created_at <= ?';
+            values.push(endDate);
         }
 
-        const query = `
+        const dataQuery = `
             SELECT posts.*, get_post_likes(posts.id) AS likes
             FROM ${this.tableName} ${joinClause} ${whereClause}
             ORDER BY ${orderBy} ${order}
@@ -55,8 +63,25 @@ class PostDAO extends BaseDAO {
             OFFSET ${safeOffset}
         `;
 
-        const [rows] = await this.pool.execute(query, values);
-        const posts = rows.map(row => this._createModel(row));
+        const foundQuery = `
+            SELECT COUNT(DISTINCT posts.id) as found
+            FROM ${this.tableName} ${joinClause} ${whereClause}
+        `;
+
+        const totalQuery = `
+            SELECT COUNT(*) as total
+            FROM ${this.tableName}
+        `;
+
+        const [dataRows, foundRows, totalRows] = await Promise.all([
+            this.pool.execute(dataQuery, values),
+            this.pool.execute(foundQuery, values),
+            this.pool.execute(totalQuery, [])
+        ]);
+
+        const posts = dataRows[0].map(row => this._createModel(row));
+        const found = foundRows[0][0].found;
+        const total = totalRows[0][0].total;
 
         for (const post of posts) {
             const [likesRows] = await this.pool.execute(
@@ -75,10 +100,11 @@ class PostDAO extends BaseDAO {
             post.category_ids = categoryRows.map(row => row.category_id);
         }
 
-        return posts;
+        return {posts, found, total};
     }
 
-    async findCommentsByPostId(postId, userId) {
+
+    async findCommentsByPostId(postId, userId, isAdmin = false) {
         let query;
         let params;
 
@@ -87,15 +113,17 @@ class PostDAO extends BaseDAO {
                 SELECT *
                 FROM comments
                 WHERE post_id = ?
-                  AND (status = 'active' OR (status = 'inactive' AND user_id = ?))
+                  AND (status = 'active' OR (status = 'inactive' AND (user_id = ? OR ?)))
+                ORDER BY rating DESC
             `;
-            params = [postId, userId];
+            params = [postId, userId, isAdmin];
         } else {
             query = `
                 SELECT *
                 FROM comments
                 WHERE post_id = ?
                   AND status = 'active'
+                ORDER BY rating DESC
             `;
             params = [postId];
         }
@@ -164,23 +192,84 @@ class PostDAO extends BaseDAO {
         }
     }
 
-    async getFavoritePosts(userId, options) {
-        const limit = options.limit ? parseInt(options.limit, 10) : 10;
-        const offset = options.offset ? parseInt(options.offset, 10) : 0;
+    async getFavoritePosts(userId, options = {}) {
+        const {
+            limit = 3,
+            offset = 0,
+            conditions = {},
+            orderBy = 'posts.created_at',
+            order = 'DESC',
+            category_id,
+            category_ids = [],
+            startDate,
+            endDate
+        } = options;
 
-        const query = `
-            SELECT posts.*
-            FROM favorite_posts
-                     JOIN posts ON favorite_posts.post_id = posts.id
-            WHERE favorite_posts.user_id = ?
-              AND posts.status = 'active'
-                LIMIT ${limit}
-            OFFSET ${offset};
+        const safeLimit = parseInt(limit, 10);
+        const safeOffset = parseInt(offset, 10);
+
+        const keys = Object.keys(conditions);
+        const values = Object.values(conditions);
+        values.unshift(userId);
+
+        let whereClause = 'WHERE favorite_posts.user_id = ? AND posts.status = \'active\'';
+        let joinClause = 'JOIN posts ON favorite_posts.post_id = posts.id';
+
+        if (keys.length) {
+            whereClause += ' AND ' + keys.map(key => key === 'title' ? `posts.${key} LIKE ?` : `posts.${key} = ?`).join(' AND ');
+        }
+
+        if (category_id) {
+            joinClause += ' JOIN posts_categories ON posts.id = posts_categories.post_id';
+            whereClause += ' AND posts_categories.category_id = ?';
+            values.push(category_id);
+        } else if (category_ids.length > 0) {
+            joinClause += ' JOIN posts_categories ON posts.id = posts_categories.post_id';
+            whereClause += ` AND posts_categories.category_id IN (${category_ids.map(() => '?').join(', ')})`;
+            values.push(...category_ids);
+        }
+
+        if (startDate && endDate) {
+            whereClause += ' AND posts.created_at BETWEEN ? AND ?';
+            values.push(startDate, endDate);
+        } else if (startDate) {
+            whereClause += ' AND posts.created_at >= ?';
+            values.push(startDate);
+        } else if (endDate) {
+            whereClause += ' AND posts.created_at <= ?';
+            values.push(endDate);
+        }
+
+        const dataQuery = `
+            SELECT posts.*, get_post_likes(posts.id) AS likes
+            FROM favorite_posts ${joinClause} ${whereClause}
+            ORDER BY ${orderBy} ${order}
+                LIMIT ${safeLimit}
+            OFFSET ${safeOffset}
         `;
 
-        const [rows] = await this.pool.execute(query, [userId]);
+        const foundQuery = `
+            SELECT COUNT(DISTINCT posts.id) as found
+            FROM favorite_posts
+                ${joinClause}
+                ${whereClause}
+        `;
 
-        const posts = rows.map(row => this._createModel(row));
+        const totalQuery = `
+            SELECT COUNT(*) as total
+            FROM favorite_posts
+            WHERE user_id = ?
+        `;
+
+        const [dataRows, foundRows, totalRows] = await Promise.all([
+            this.pool.execute(dataQuery, values),
+            this.pool.execute(foundQuery, values),
+            this.pool.execute(totalQuery, [userId])
+        ]);
+
+        const posts = dataRows[0].map(row => this._createModel(row));
+        const found = foundRows[0][0].found;
+        const total = totalRows[0][0].total;
 
         for (const post of posts) {
             const [likesRows] = await this.pool.execute(
@@ -199,7 +288,7 @@ class PostDAO extends BaseDAO {
             post.category_ids = categoryRows.map(row => row.category_id);
         }
 
-        return posts;
+        return {posts, found, total};
     }
 
     async addFavoritePost(userId, postId) {
@@ -254,7 +343,7 @@ class PostDAO extends BaseDAO {
         return rows;
     }
 
-    async findById(id) {
+    async findById(id, userId = null) {
         const [rows] = await this.pool.execute(
             `SELECT *
              FROM ${this.tableName}
@@ -278,10 +367,22 @@ class PostDAO extends BaseDAO {
                 [post.id]
             );
             post.category_ids = categoryRows.map(row => row.category_id);
+
+            if (userId) {
+                const [favoriteRows] = await this.pool.execute(
+                    `SELECT COUNT(*) AS isFavourite
+                     FROM favorite_posts
+                     WHERE user_id = ?
+                       AND post_id = ?`,
+                    [userId, post.id]
+                );
+                post.isFavourite = favoriteRows[0].isFavourite > 0;
+            }
         }
 
         return post;
     }
+
 
     async addLike(userId, postId, type) {
         const updateQuery = `
@@ -378,3 +479,5 @@ class PostDAO extends BaseDAO {
 }
 
 module.exports = PostDAO;
+
+
